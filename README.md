@@ -2,7 +2,7 @@
 
 **依赖注入DI**
 
-依赖注入知道怎么初始化并配置对象及其依赖的所有对象，核心代码如下(简化，只是说思路)
+依赖注入知道怎么初始化对象，仅仅配置构造参数就可以，核心代码如下(简化，只是说思路)
 ```
   class Di
   {
@@ -35,13 +35,29 @@
     }
   }
 ```
+可以非常灵活的自定义如何new对象，如Yii2中:(如何类实现了Configurable接口，则将最后一个构造参数变成$config)
+```
+	if (!empty($dependencies) && $reflection->implementsInterface('yii\base\Configurable')) {
+            // set $config as the last parameter (existing one will be overwritten)
+            $dependencies[count($dependencies) - 1] = $config;
+
+            return $reflection->newInstanceArgs($dependencies);
+        }
+```
+也可以(将$config依次赋予类，触发魔术方法__set)
+```
+	$object = $reflection->newInstanceArgs($dependencies);
+        foreach ($config as $name => $value) {
+            $object->$name = $value;
+        }
+```
 还可以在应用初始化的时候，先定义好依赖关系和那些类是单例模式
 ```
   class Di
   {
     //经过new ReflectionClass()返回后的实例
     public $_reflections = [];
-    //构造函数依赖关系
+    //经过new ReflectionClass()返回后的实例的构造函数依赖关系
     public $_dependencies = [];
     //映射出的容器id的类的初始化参数
     private $_params = [];
