@@ -56,6 +56,33 @@
 **服务定位器**
 
 服务定位器可以在应用初始化的时候定义容器id对应的类关系，还可以在应用运行时候动态修改容器id与类的映射
+
+如一个db类，可以理解成是一个db容器，在测试环境需要连接127.0.0.1:3306,在灰度环境需要连接10.8.8.8:3386，在开发环境需要连接10.9.9.9:3307，我们可以进行如下定义，仅仅修改配置就可以让di层知道如何创建容器
+```
+$config = [
+	"components"=>[
+		"db"=> function(){
+			if(测试环境){
+				return [
+					"class" => "test_db",
+					"params" => [连接参数127.0.0.1:3306]
+				];
+			} elseif (灰度环境){
+				return [
+					"class" => "grey_db",
+					"params" => [连接参数10.8.8.8:3386]
+				];
+			} elseif (开发环境){
+				return [
+					"class" => "pro_db",
+					"params" => [连接参数10.9.9.9:3307]
+				];
+			}
+		}
+	]
+];
+```
+
 如test.php中的代码:
 ```
 <?php
@@ -131,9 +158,10 @@ namespace di;
 use Exception;
 
 class BaseObject implements Configurable{
-	public function __construct($config = [])
+    public function __construct($config = [])
     {
         if (!empty($config)) {
+	    //这么做的目的就是用另一个类去设置属性，触发该类的魔术方法
             DiBase::configure($this, $config);
         }
         $this->init();
