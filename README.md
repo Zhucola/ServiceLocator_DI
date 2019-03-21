@@ -1,6 +1,7 @@
 **参考Yii2实现的以依赖注入为基础的服务定位器，Yii2代码部分为vendor/yiisoft/yii2/di/**
 
 **依赖注入DI**
+
 依赖注入知道怎么初始化并配置对象及其依赖的所有对象，核心代码如下(简化，只是说思路)
 ```
   class Di
@@ -51,7 +52,9 @@
   }
 ```
 如果单单仅使用依赖注入，则其实本质还是new class_name，需要和服务定位器配合
+
 **服务定位器**
+
 服务定位器可以在应用初始化的时候定义容器id对应的类关系，还可以在应用运行时候动态修改容器id与类的映射
 如test.php中的代码:
 ```
@@ -114,5 +117,100 @@ if($app->has("cache")){
 if($app->has("db")){
 	$cache = $app->get("db");
 	var_dump($cache->age);//注册属性的逻辑是$this->age = age + 1;
+}
+```
+如定义了一个容器db（容器id是db），那么db容器对应的类就是"test_obj\\A",可以在应用中动态修改这个映射，将容器的实例化转移到了DI层，也可以在初始化中修改$config配置，从而减少了容器之间的藕合
+
+在Yii2中，容器id的映射也可以是一个回调，可以非常灵活的设置依赖关系
+
+该模式也支持了设置依赖类属性，具体核心代码(简化)：
+```
+<?php
+
+namespace di;
+use Exception;
+
+class BaseObject implements Configurable{
+	public function __construct($config = [])
+    {
+        if (!empty($config)) {
+            DiBase::configure($this, $config);
+        }
+        $this->init();
+    }
+
+    public function init()
+    {
+
+    }
+    
+    public function __get($name)
+    {
+        $getter = 'get' . $name;
+        if (method_exists($this, $getter)) {
+            return $this->$getter();
+        } elseif (method_exists($this, 'set' . $name)) {
+            throw new Exception('Getting write-only property: ' . get_class($this) . '::' . $name);
+        }
+
+        throw new Exception('Getting unknown property: ' . get_class($this) . '::' . $name);
+    }
+
+    public function __set($name, $value)
+    {
+        $setter = 'set' . $name;
+        if (method_exists($this, $setter)) {
+            $this->$setter($value);
+        } elseif (method_exists($this, 'get' . $name)) {
+            throw new Exception('Setting read-only property: ' . get_class($this) . '::' . $name);
+        } else {
+            throw new Exception('Setting unknown property: ' . get_class($this) . '::' . $name);
+        }
+    }
+
+    public function __isset($name)
+    {
+        $getter = 'get' . $name;
+        if (method_exists($this, $getter)) {
+            return $this->$getter() !== null;
+        }
+
+        return false;
+    }
+
+    public function __unset($name)
+    {
+        $setter = 'set' . $name;
+        if (method_exists($this, $setter)) {
+            $this->$setter(null);
+        } elseif (method_exists($this, 'get' . $name)) {
+            throw new Exception('Unsetting read-only property: ' . get_class($this) . '::' . $name);
+        }
+    }
+
+    public function __call($name, $params)
+    {
+        throw new Exception('Calling unknown method: ' . get_class($this) . "::$name()");
+    }
+
+    public function hasProperty($name, $checkVars = true)
+    {
+        return $this->canGetProperty($name, $checkVars) || $this->canSetProperty($name, false);
+    }
+
+    public function canGetProperty($name, $checkVars = true)
+    {
+        return method_exists($this, 'get' . $name) || $checkVars && property_exists($this, $name);
+    }
+
+    public function canSetProperty($name, $checkVars = true)
+    {
+        return method_exists($this, 'set' . $name) || $checkVars && property_exists($this, $name);
+    }
+
+    public function hasMethod($name)
+    {
+        return method_exists($this, $name);
+    }
 }
 ```
