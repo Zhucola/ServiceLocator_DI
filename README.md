@@ -1,4 +1,4 @@
-**参考Yii2实现的以依赖注入为基础的服务定位器，Yii2代码部分为vendor/yiisoft/yii2/di/**
+参考Yii2实现的以依赖注入为基础的服务定位器，Yii2代码部分为vendor/yiisoft/yii2/di/
 
 **依赖注入DI**
 
